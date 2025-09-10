@@ -1,0 +1,6 @@
+body{font-family:Arial,Helvetica,sans-serif;margin:2rem;background:#fafafa}
+h1{margin-top:0}
+table{border-collapse:collapse;width:100%;margin:1rem 0}
+th,td{border:1px solid #ccc;padding:4px 8px;text-align:center}
+input[type=file]{margin-bottom:1rem}
+#totals{margin-top:1rem;font-weight:bold}
