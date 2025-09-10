@@ -1,50 +1,64 @@
-// ------------ конфиг ------------
-const PERIOD=0, PREV=1, CUR=2, SPEND=3, TARIF=4, COST=5;
-let data=[];          // массив строк
+// --------- конфиг колонок ---------
+const PERIOD=0, PREV=1, CUR=2, SPEND=3, TARIF=4, COST=5, PAYDATE=6;
+let data=[];        // массив строк
 let chart=null;
 
-// ------------ инициализация ------------
+// --------- старт ---------
+document.getElementById('addBtn').addEventListener('click', addRow);
 document.getElementById('fileInput').addEventListener('change', handleFile);
-document.getElementById('addRowBtn').addEventListener('click', addManualRow);
 loadFromStorage();
 render();
 
-// ------------ загрузка Excel ------------
+// --------- загрузка Excel ---------
 function handleFile(e){
-  const f=e.target.files[0];
-  if(!f)return;
+  const f=e.target.files[0]; if(!f)return;
   const r=new FileReader();
   r.onload=function(e){
     const wb=XLSX.read(e.target.result,{type:'binary'});
     const ws=wb.Sheets[wb.SheetNames[0]];
     const raw=XLSX.utils.sheet_to_json(ws,{header:1,defval:''});
-    raw.shift();                 // удалить заголовок
+    raw.shift();                       // заголовок
     data=raw.map(r=>[
-      r[0]||'', +r[1]||0, +r[2]||0, +r[3]||0, +r[4]||0, +r[5]||0
-    ]).filter(r=>r[CUR]);        // оставить только строки с текущими
+      r[0]||'',                // period
+      +r[1]||0,                // prev
+      +r[2]||0,                // curr
+      +r[3]||0,                // spend
+      +r[4]||0,                // tarif
+      +r[5]||0,                // cost
+      r[6]||''                 // paydate
+    ]).filter(r=>r[CUR]);              // только есть текущие
     saveToStorage();
     render();
   };
   r.readAsBinaryString(f);
 }
 
-// ------------ ручной ввод ------------
-function addManualRow(){
-  const p=prompt('Период (например 09.2023):','');
-  const c=+prompt('Текущие показания, кВт·ч:','');
-  if(!p||!c)return;
-  const last=data.length?data[data.length-1][CUR]:0;
-  data.push([p, last, c, c-last, 0, 0]);
+// --------- ручной ввод ---------
+function addRow(){
+  const period=document.getElementById('period').value;          // yyyy-mm
+  const prev=+document.getElementById('prev').value;
+  const curr=+document.getElementById('curr').value;
+  const tarif=+document.getElementById('tarif').value;
+  const payDate=document.getElementById('payDate').value;
+  if(!period||!curr){alert('Заполните период и текущие показания');return;}
+  const spend=curr-prev;
+  const cost=spend*tarif;
+  data.push([period,prev,curr,spend,tarif,cost,payDate]);
   saveToStorage();
   render();
+  // очистить форму
+  document.getElementById('prev').value=curr;
+  document.getElementById('curr').value='';
+  document.getElementById('tarif').value='';
+  document.getElementById('payDate').value='';
 }
 
-// ------------ отрисовка таблицы + итоги ------------
+// --------- отрисовка таблицы ---------
 function render(){
   const tbl=document.getElementById('dataTable');
   tbl.innerHTML='';
   let tr=document.createElement('tr');
-  ['Период','Пред','Текущ','Расход','Тариф','Сумма'].forEach(h=>{
+  ['Период','Пред-щие кВт·ч','Текущие кВт·ч','Расход кВт·ч','Тариф руб','Сумма руб','Дата оплаты'].forEach(h=>{
     const th=document.createElement('th'); th.textContent=h; tr.appendChild(th);
   }); tbl.appendChild(tr);
 
@@ -52,24 +66,16 @@ function render(){
     tr=document.createElement('tr');
     r.forEach((c,i)=>{
       const td=document.createElement('td');
-      td.textContent=i===SPEND||i===COST?c.toFixed(2):c;
+      if(i===SPEND||i===COST)td.textContent=c.toFixed(2);
+      else if(i===PAYDATE)td.textContent=c?c:'–';
+      else td.textContent=c;
       tr.appendChild(td);
     }); tbl.appendChild(tr);
   });
-
-  // ------------ итоговые цифры ------------
-  const totalSpend=data.reduce((s,r)=>s+r[SPEND],0);
-  const days=calcDays();
-  const avg=days?totalSpend/days:0;
-  document.getElementById('totals').innerHTML=
-    `Итого расход: ${totalSpend.toFixed(2)} кВт·ч<br>`+
-    `Дней всего: ${days}<br>`+
-    `Среднедневное: ${avg.toFixed(2)} кВт·ч/сут`;
-
   drawChart();
 }
 
-// ------------ график ------------
+// --------- график ---------
 function drawChart(){
   const ctx=document.getElementById('chart').getContext('2d');
   if(chart)chart.destroy();
@@ -79,37 +85,15 @@ function drawChart(){
     type:'line',
     data:{
       labels:labels,
-      datasets:[{
-        label:'Расход, кВт·ч',
-        data:values,
-        borderColor:'#0066cc',
-        fill:false,
-        tension:0.15
-      }]
+      datasets:[{label:'Расход кВт·ч',data:values,borderColor:'#0066cc',fill:false,tension:0.15}]
     },
-    options:{
-      responsive:true,
-      plugins:{legend:{display:true}},
-      scales:{y:{beginAtZero:true}}
-    }
+    options:{responsive:true,plugins:{legend:{display:true}},scales:{y:{beginAtZero:true}}}
   });
 }
 
-// ------------ количество дней ------------
-function calcDays(){
-  if(data.length<2)return 0;
-  const first=parseDate(data[0][PERIOD]);
-  const last=parseDate(data[data.length-1][PERIOD]);
-  return Math.round((last-first)/864e5)+1;
-}
-function parseDate(str){          // превращаем "09.2023" в Date
-  const [mm,yyyy]=str.split(/[.\-\/]/);
-  return new Date(yyyy,mm-1,1);
-}
-
-// ------------ localStorage ------------
-function saveToStorage(){localStorage.setItem('ec_data',JSON.stringify(data))}
+// --------- localStorage ---------
+function saveToStorage(){localStorage.setItem('ec_data_v2',JSON.stringify(data))}
 function loadFromStorage(){
-  const s=localStorage.getItem('ec_data');
+  const s=localStorage.getItem('ec_data_v2');
   if(s)data=JSON.parse(s);
 }

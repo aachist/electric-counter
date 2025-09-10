@@ -9,13 +9,27 @@
 <body>
   <h1>Показания счётчика</h1>
 
+  <!-- Загрузка Excel -->
   <input type="file" id="fileInput" accept=".xlsx">
-  <button id="addRowBtn">+ Добавить вручную</button>
+  <hr>
+
+  <!-- Быстрый ввод одной строки -->
+  <h3>Добавить запись</h3>
+  <div class="row">
+    <label>Период: <input type="month" id="period"></label>
+    <label>Пред-щие, кВт·ч: <input type="number" id="prev" step="0.01" min="0"></label>
+    <label>Текущие, кВт·ч: <input type="number" id="curr" step="0.01" min="0"></label>
+    <label>Тариф, руб: <input type="number" id="tarif" step="0.01" min="0"></label>
+    <label>Дата оплаты: <input type="date" id="payDate"></label>
+    <button id="addBtn">+ Добавить</button>
+  </div>
+  <hr>
+
+  <!-- Таблица -->
   <table id="dataTable"></table>
 
+  <!-- График расхода -->
   <canvas id="chart" height="120"></canvas>
-
-  <div id="totals"></div>
 
   <script src="js/sheetjs.min.js"></script>
   <script src="js/app.js"></script>
